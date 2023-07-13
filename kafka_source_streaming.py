@@ -25,7 +25,7 @@ if __name__ == "__main__":
         .load()
     kafka_df.createOrReplaceTempView("fake_people")
 
-    count_df = spark.sql("SELECT title, COUNT(1) count FROM fake_people GROUP BY 1")
+    count_df = spark.sql("SELECT title, COUNT(1) count FROM fake_people GROUP BY 1 ORDER BY 2 DESC LIMIT 10")
 
     count_writer_query = count_df.writeStream \
         .format("json") \
