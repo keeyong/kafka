@@ -9,6 +9,7 @@ if __name__ == "__main__":
         .appName("File Streaming Demo") \
         .master("local[3]") \
         .config("spark.streaming.stopGracefullyOnShutdown", "true") \
+        .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1") \
         .getOrCreate()
 
     schema = StructType([
@@ -23,19 +24,26 @@ if __name__ == "__main__":
         .option("subscribe", "fake_people") \
         .option("startingOffsets", "earliest") \
         .load()
-    kafka_df.createOrReplaceTempView("fake_people")
-
-    count_df = spark.sql("SELECT title, COUNT(1) count FROM fake_people GROUP BY 1 ORDER BY 2 DESC LIMIT 10")
+    kafka_df.printSchema()
+    """
+    |-- key: binary (nullable = true)
+    |-- value: binary (nullable = true)
+    |-- topic: string (nullable = true)
+    |-- partition: integer (nullable = true)
+    |-- offset: long (nullable = true)
+    |-- timestamp: timestamp (nullable = true)
+    |-- timestampType: integer (nullable = true)
+    """
+    value_df = kafka_df.select(from_json(col("value").cast("string"), schema).alias("value"))
+    value_df.createOrReplaceTempView("fake_people")
+    value_df.printSchema()
+    count_df = spark.sql("SELECT value.title, COUNT(1) count FROM fake_people GROUP BY 1 ORDER BY 2 DESC LIMIT 10")
 
     count_writer_query = count_df.writeStream \
-        .format("json") \
-        .queryName("Title Count Writer") \
+        .format("console") \
         .outputMode("complete") \
-        .option("path", "output") \
-        .option("checkpointLocation", "chk-point-dir") \
-        .trigger(processingTime="1 minute") \
+        .option("checkpointLocation", "chk-point-dir-json") \
         .start()
 
     print("Listening to Kafka")
-    invoice_writer_query.awaitTermination()
-
+    count_writer_query.awaitTermination()
