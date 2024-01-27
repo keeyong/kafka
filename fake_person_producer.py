@@ -1,5 +1,5 @@
+import re
 import uuid
-import json
 from typing import List
 from person import Person
 
@@ -46,8 +46,8 @@ def main():
         people.append(person)
         producer.send(
             topic=topic_name,
-            key=person.title.lower().replace(r's+', '-').encode('utf-8'),
-            value=person.json().encode('utf-8'))
+            key=re.sub(r'\s+', '-', person.title.lower()).encode('utf-8'),
+            value=person.model_dump_json().encode('utf-8'))
 
     producer.flush()
 
